@@ -29,7 +29,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
                 setContent {
-            ClayTheme {
+            GlassTheme {
                 var showIntro by remember { mutableStateOf(true) }
                 if (showIntro) IntroScreen { showIntro = false } else Dashboard(vm)
             }
