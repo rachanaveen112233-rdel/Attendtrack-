@@ -2,6 +2,8 @@ package com.attendtrack.telangana
 
 import android.content.Context
 import androidx.room.*
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.flow.Flow
 
 @Entity(tableName = "subjects")
@@ -22,6 +24,15 @@ data class AttRecord(
     val date: String,
     val period: Int,
     val present: Boolean
+)
+
+@Entity(tableName = "holidays")
+data class Holiday(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val name: String,
+    val startDate: String,
+    val endDate: String,
+    val provisional: Boolean
 )
 
 @Dao
@@ -55,9 +66,39 @@ interface SubjectDao {
 
     @Delete
     suspend fun deleteRecord(r: AttRecord)
+
+    @Query("SELECT * FROM holidays ORDER BY startDate")
+    fun holidays(): Flow<List<Holiday>>
+
+    @Query("SELECT COUNT(*) FROM holidays")
+    suspend fun holidayCount(): Int
+
+    @Insert
+    suspend fun insertHoliday(h: Holiday)
+
+    @Insert
+    suspend fun insertHolidays(list: List<Holiday>)
+
+    @Delete
+    suspend fun deleteHoliday(h: Holiday)
 }
 
-@Database(entities = [Subject::class, AttRecord::class], version = 3, exportSchema = false)
+val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS holidays (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "name TEXT NOT NULL, startDate TEXT NOT NULL, " +
+                "endDate TEXT NOT NULL, provisional INTEGER NOT NULL)"
+        )
+    }
+}
+
+@Database(
+    entities = [Subject::class, AttRecord::class, Holiday::class],
+    version = 4,
+    exportSchema = false
+)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun dao(): SubjectDao
 
@@ -66,7 +107,7 @@ abstract class AppDatabase : RoomDatabase() {
         fun get(ctx: Context): AppDatabase = inst ?: synchronized(this) {
             inst ?: Room.databaseBuilder(
                 ctx.applicationContext, AppDatabase::class.java, "attendtrack.db"
-            ).fallbackToDestructiveMigration().build().also { inst = it }
+            ).addMigrations(MIGRATION_3_4).build().also { inst = it }
         }
     }
 }
