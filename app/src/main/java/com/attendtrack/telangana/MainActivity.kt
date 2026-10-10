@@ -191,6 +191,18 @@ fun Dashboard(vm: AttendViewModel) {
                     }
                 }
             }
+                        item {
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text("Backup", style = MaterialTheme.typography.titleMedium)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = { backupMaker.launch("attendtrack-backup.json") }) { Text("Backup") }
+                            OutlinedButton(onClick = { restorer.launch(arrayOf("*/*")) }) { Text("Restore") }
+                        }
+                        if (restoreMsg.isNotEmpty()) Text(restoreMsg)
+                    }
+                }
+            }
             item { Text("Holidays", style = MaterialTheme.typography.titleLarge) }
             items(hols, key = { "h" + it.id }) { h ->
                 Card(Modifier.fillMaxWidth()) {
