@@ -47,15 +47,18 @@ class AttendViewModel(app: Application) : AndroidViewModel(app) {
         selectedDate.value = date
     }
 
-    fun markOn(s: Subject, present: Boolean) {
+    fun markPeriod(subjectName: String, period: Int, present: Boolean) {
         viewModelScope.launch {
+            val s = subjects.value.firstOrNull { it.name == subjectName } ?: return@launch
             val date = selectedDate.value
-            val old = dao.find(s.id, date)
+            val old = dao.find(date, period)
             val cur = dao.getSubject(s.id)
             val p = if (present) 1 else 0
             when {
                 old == null -> {
-                    dao.insertRecord(AttRecord(subjectId = s.id, date = date, present = present))
+                    dao.insertRecord(
+                        AttRecord(subjectId = s.id, date = date, period = period, present = present)
+                    )
                     dao.update(cur.copy(attended = cur.attended + p, held = cur.held + 1))
                 }
                 old.present == present -> {
