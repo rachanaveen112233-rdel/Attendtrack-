@@ -115,7 +115,7 @@ class AttendViewModel(app: Application) : AndroidViewModel(app) {
         }
         return sb.toString()
     }
-        viewModelScope.launch {
+            fun addHoliday(name: String, start: String, end: String) {
             dao.insertHoliday(
                 Holiday(name = name, startDate = start, endDate = end, provisional = true)
             )
