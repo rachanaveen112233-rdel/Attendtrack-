@@ -3,17 +3,21 @@ package com.attendtrack.telangana
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.room.withTransaction
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import org.json.JSONArray
+import org.json.JSONObject
 import java.time.LocalDate
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class AttendViewModel(app: Application) : AndroidViewModel(app) {
-    private val dao = AppDatabase.get(app).dao()
+    private val db = AppDatabase.get(app)
+    private val dao = db.dao()
 
     val selectedDate = MutableStateFlow(LocalDate.now().toString())
 
@@ -114,6 +118,75 @@ class AttendViewModel(app: Application) : AndroidViewModel(app) {
             sb.append("${r.date},$day,${r.period},${names[r.subjectId] ?: ""},$status\n")
         }
         return sb.toString()
+    }
+
+    suspend fun buildBackup(): String {
+        val root = JSONObject()
+        root.put("version", 1)
+        val subs = JSONArray()
+        for (s in dao.allSubjects()) {
+            subs.put(
+                JSONObject().put("id", s.id).put("name", s.name)
+                    .put("attended", s.attended).put("held", s.held)
+            )
+        }
+        val recs = JSONArray()
+        for (r in dao.allRecords()) {
+            recs.put(
+                JSONObject().put("id", r.id).put("subjectId", r.subjectId)
+                    .put("date", r.date).put("period", r.period).put("present", r.present)
+            )
+        }
+        val hols = JSONArray()
+        for (h in dao.allHolidays()) {
+            hols.put(
+                JSONObject().put("id", h.id).put("name", h.name)
+                    .put("startDate", h.startDate).put("endDate", h.endDate)
+                    .put("provisional", h.provisional)
+            )
+        }
+        root.put("subjects", subs)
+        root.put("records", recs)
+        root.put("holidays", hols)
+        return root.toString()
+    }
+
+    suspend fun restoreBackup(text: String): Boolean {
+        return try {
+            val root = JSONObject(text)
+            val sa = root.getJSONArray("subjects")
+            val ra = root.getJSONArray("records")
+            val ha = root.getJSONArray("holidays")
+            val subs = (0 until sa.length()).map {
+                val o = sa.getJSONObject(it)
+                Subject(o.getInt("id"), o.getString("name"), o.getInt("attended"), o.getInt("held"))
+            }
+            val recs = (0 until ra.length()).map {
+                val o = ra.getJSONObject(it)
+                AttRecord(
+                    o.getInt("id"), o.getInt("subjectId"), o.getString("date"),
+                    o.getInt("period"), o.getBoolean("present")
+                )
+            }
+            val hols = (0 until ha.length()).map {
+                val o = ha.getJSONObject(it)
+                Holiday(
+                    o.getInt("id"), o.getString("name"), o.getString("startDate"),
+                    o.getString("endDate"), o.getBoolean("provisional")
+                )
+            }
+            db.withTransaction {
+                dao.clearRecords()
+                dao.clearSubjects()
+                dao.clearHolidays()
+                dao.insertAll(subs)
+                dao.insertRecords(recs)
+                dao.insertHolidays(hols)
+            }
+            true
+        } catch (e: Exception) {
+            false
+        }
     }
 
     fun addHoliday(name: String, start: String, end: String) {
