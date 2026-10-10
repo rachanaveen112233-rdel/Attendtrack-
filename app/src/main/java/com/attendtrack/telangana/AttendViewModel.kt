@@ -105,7 +105,16 @@ class AttendViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun addHoliday(name: String, start: String, end: String) {
+        suspend fun buildCsv(): String {
+        val names = subjects.value.associate { it.id to it.name }
+        val sb = StringBuilder("date,day,period,subject,status\n")
+        for (r in dao.allRecords()) {
+            val day = LocalDate.parse(r.date).dayOfWeek
+            val status = if (r.present) "Present" else "Absent"
+            sb.append("${r.date},$day,${r.period},${names[r.subjectId] ?: ""},$status\n")
+        }
+        return sb.toString()
+    }
         viewModelScope.launch {
             dao.insertHoliday(
                 Holiday(name = name, startDate = start, endDate = end, provisional = true)
