@@ -69,6 +69,8 @@ interface SubjectDao {
 
     @Query("SELECT * FROM records ORDER BY date, period")
     suspend fun allRecords(): List<AttRecord>
+
+    @Query("SELECT * FROM holidays ORDER BY startDate")
     fun holidays(): Flow<List<Holiday>>
 
     @Query("SELECT COUNT(*) FROM holidays")
