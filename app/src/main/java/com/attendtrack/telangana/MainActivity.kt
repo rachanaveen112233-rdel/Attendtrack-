@@ -161,7 +161,8 @@ fun Dashboard(vm: AttendViewModel) {
     }
 
     if (picking) {
-        val state = rememberDatePickerState(
+                val state = rememberDatePickerState(
+            yearRange = 2026..2027,
             initialSelectedDateMillis = LocalDate.parse(date)
                 .atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
         )
@@ -192,7 +193,7 @@ fun Dashboard(vm: AttendViewModel) {
     }
 
     if (addStep == 2) {
-        val rs = rememberDateRangePickerState()
+                val rs = rememberDateRangePickerState(yearRange = 2026..2027)
         DatePickerDialog(
             onDismissRequest = { addStep = 0 },
             confirmButton = {
