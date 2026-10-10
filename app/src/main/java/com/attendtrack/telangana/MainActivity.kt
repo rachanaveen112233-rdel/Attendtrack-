@@ -76,6 +76,30 @@ fun Dashboard(vm: AttendViewModel) {
         }
     }
 
+        val backupMaker = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                val json = vm.buildBackup()
+                context.contentResolver.openOutputStream(uri)?.use {
+                    it.write(json.toByteArray())
+                }
+            }
+        }
+    }
+    var restoreMsg by remember { mutableStateOf("") }
+    val restorer = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                val text = context.contentResolver.openInputStream(uri)
+                    ?.bufferedReader()?.use { it.readText() } ?: ""
+                restoreMsg = if (vm.restoreBackup(text)) "Restore done" else "Restore failed: wrong file"
+            }
+        }
+    }
     val att = list.sumOf { it.attended }
     val held = list.sumOf { it.held }
     val day = LocalDate.parse(date).dayOfWeek
