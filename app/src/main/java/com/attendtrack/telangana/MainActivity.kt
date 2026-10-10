@@ -10,10 +10,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
 
 class MainActivity : ComponentActivity() {
     private val vm: AttendViewModel by viewModels()
@@ -34,7 +38,10 @@ fun status(a: Int, h: Int): String = when {
 @Composable
 fun Dashboard(vm: AttendViewModel) {
     val list by vm.subjects.collectAsStateWithLifecycle()
+    val recs by vm.records.collectAsStateWithLifecycle()
+    val date by vm.selectedDate.collectAsStateWithLifecycle()
     var editing by remember { mutableStateOf<Subject?>(null) }
+    var picking by remember { mutableStateOf(false) }
     val att = list.sumOf { it.attended }
     val held = list.sumOf { it.held }
 
@@ -56,7 +63,20 @@ fun Dashboard(vm: AttendViewModel) {
                     }
                 }
             }
+            item {
+                Card(Modifier.fillMaxWidth()) {
+                    Row(
+                        Modifier.padding(16.dp).fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Marking for: $date")
+                        Button(onClick = { picking = true }) { Text("Change date") }
+                    }
+                }
+            }
             items(list, key = { it.id }) { s ->
+                val rec = recs.firstOrNull { it.subjectId == s.id }
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp)) {
                         Text(s.name, style = MaterialTheme.typography.titleMedium)
@@ -67,14 +87,43 @@ fun Dashboard(vm: AttendViewModel) {
                         )
                         Text(status(s.attended, s.held))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(onClick = { vm.mark(s, true) }) { Text("Present") }
-                            OutlinedButton(onClick = { vm.mark(s, false) }) { Text("Absent") }
+                            if (rec?.present == true) {
+                                Button(onClick = { vm.markOn(s, true) }) { Text("Present") }
+                            } else {
+                                OutlinedButton(onClick = { vm.markOn(s, true) }) { Text("Present") }
+                            }
+                            if (rec?.present == false) {
+                                Button(onClick = { vm.markOn(s, false) }) { Text("Absent") }
+                            } else {
+                                OutlinedButton(onClick = { vm.markOn(s, false) }) { Text("Absent") }
+                            }
                             TextButton(onClick = { editing = s }) { Text("Edit") }
                         }
                     }
                 }
             }
         }
+    }
+
+    if (picking) {
+        val state = rememberDatePickerState(
+            initialSelectedDateMillis = LocalDate.parse(date)
+                .atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+        )
+        DatePickerDialog(
+            onDismissRequest = { picking = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    state.selectedDateMillis?.let {
+                        vm.setDate(
+                            Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate().toString()
+                        )
+                    }
+                    picking = false
+                }) { Text("OK") }
+            },
+            dismissButton = { TextButton(onClick = { picking = false }) { Text("Cancel") } }
+        ) { DatePicker(state = state) }
     }
 
     editing?.let { s ->
