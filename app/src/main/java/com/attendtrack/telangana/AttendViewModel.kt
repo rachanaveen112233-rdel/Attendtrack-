@@ -21,6 +21,10 @@ class AttendViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
     )
 
+    val holidays = dao.holidays().stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
+    )
+
     val records = selectedDate.flatMapLatest { dao.forDate(it) }.stateIn(
         viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
     )
@@ -40,8 +44,29 @@ class AttendViewModel(app: Application) : AndroidViewModel(app) {
                     ).map { Subject(name = it) }
                 )
             }
+            if (dao.holidayCount() == 0) {
+                dao.insertHolidays(
+                    listOf(
+                        Holiday(
+                            name = "Dussehra Vacation",
+                            startDate = "2026-10-12",
+                            endDate = "2026-10-22",
+                            provisional = false
+                        ),
+                        Holiday(
+                            name = "Preparation Holidays & Practical Exams",
+                            startDate = "2026-12-06",
+                            endDate = "2026-12-13",
+                            provisional = false
+                        )
+                    )
+                )
+            }
         }
     }
+
+    fun holidayOn(date: String): Holiday? =
+        holidays.value.firstOrNull { date >= it.startDate && date <= it.endDate }
 
     fun setDate(date: String) {
         selectedDate.value = date
@@ -49,8 +74,9 @@ class AttendViewModel(app: Application) : AndroidViewModel(app) {
 
     fun markPeriod(subjectName: String, period: Int, present: Boolean) {
         viewModelScope.launch {
-            val s = subjects.value.firstOrNull { it.name == subjectName } ?: return@launch
             val date = selectedDate.value
+            if (holidayOn(date) != null) return@launch
+            val s = subjects.value.firstOrNull { it.name == subjectName } ?: return@launch
             val old = dao.find(date, period)
             val cur = dao.getSubject(s.id)
             val p = if (present) 1 else 0
@@ -77,5 +103,17 @@ class AttendViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             dao.update(s.copy(name = name, attended = attended, held = held))
         }
+    }
+
+    fun addHoliday(name: String, start: String, end: String) {
+        viewModelScope.launch {
+            dao.insertHoliday(
+                Holiday(name = name, startDate = start, endDate = end, provisional = true)
+            )
+        }
+    }
+
+    fun deleteHoliday(h: Holiday) {
+        viewModelScope.launch { dao.deleteHoliday(h) }
     }
 }
