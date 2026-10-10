@@ -30,6 +30,9 @@ class MainActivity : ComponentActivity() {
 
 val periodTimes = listOf("10-11", "11-12", "12-1", "2-3", "3-4", "4-5")
 
+fun toDate(ms: Long): String =
+    Instant.ofEpochMilli(ms).atZone(ZoneOffset.UTC).toLocalDate().toString()
+
 fun status(a: Int, h: Int): String = when {
     h == 0 -> "No classes yet"
     Calculator.percent(a, h) >= Calculator.TARGET ->
@@ -43,12 +46,17 @@ fun Dashboard(vm: AttendViewModel) {
     val list by vm.subjects.collectAsStateWithLifecycle()
     val recs by vm.records.collectAsStateWithLifecycle()
     val date by vm.selectedDate.collectAsStateWithLifecycle()
+    val hols by vm.holidays.collectAsStateWithLifecycle()
     var editing by remember { mutableStateOf<Subject?>(null) }
     var picking by remember { mutableStateOf(false) }
+    var addStep by remember { mutableStateOf(0) }
+    var newName by remember { mutableStateOf("") }
+
     val att = list.sumOf { it.attended }
     val held = list.sumOf { it.held }
     val day = LocalDate.parse(date).dayOfWeek
-    val periods = Timetable.week[day] ?: emptyList()
+    val hol = hols.firstOrNull { date >= it.startDate && date <= it.endDate }
+    val periods = if (hol != null) emptyList() else (Timetable.week[day] ?: emptyList())
 
     Scaffold(topBar = { TopAppBar(title = { Text("AttendTrack") }) }) { pad ->
         LazyColumn(
@@ -80,7 +88,16 @@ fun Dashboard(vm: AttendViewModel) {
                     }
                 }
             }
-            if (periods.isEmpty()) {
+            if (hol != null) {
+                item {
+                    Card(Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(16.dp)) {
+                            Text("Holiday: ${hol.name}", style = MaterialTheme.typography.titleMedium)
+                            Text("Holidays are not counted as absences")
+                        }
+                    }
+                }
+            } else if (periods.isEmpty()) {
                 item { Text("No classes on this day") }
             }
             itemsIndexed(periods) { i, name ->
@@ -112,7 +129,7 @@ fun Dashboard(vm: AttendViewModel) {
                 }
             }
             item { Text("Subjects", style = MaterialTheme.typography.titleLarge) }
-            items(list, key = { it.id }) { s ->
+            items(list, key = { "s" + it.id }) { s ->
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp)) {
                         Text(s.name, style = MaterialTheme.typography.titleMedium)
@@ -126,6 +143,20 @@ fun Dashboard(vm: AttendViewModel) {
                     }
                 }
             }
+            item { Text("Holidays", style = MaterialTheme.typography.titleLarge) }
+            items(hols, key = { "h" + it.id }) { h ->
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text(h.name, style = MaterialTheme.typography.titleMedium)
+                        Text("${h.startDate} to ${h.endDate}")
+                        Text(if (h.provisional) "Provisional" else "Official (college almanac)")
+                        TextButton(onClick = { vm.deleteHoliday(h) }) { Text("Delete") }
+                    }
+                }
+            }
+            item {
+                Button(onClick = { addStep = 1 }) { Text("Add holiday") }
+            }
         }
     }
 
@@ -138,16 +169,45 @@ fun Dashboard(vm: AttendViewModel) {
             onDismissRequest = { picking = false },
             confirmButton = {
                 TextButton(onClick = {
-                    state.selectedDateMillis?.let {
-                        vm.setDate(
-                            Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate().toString()
-                        )
-                    }
+                    state.selectedDateMillis?.let { vm.setDate(toDate(it)) }
                     picking = false
                 }) { Text("OK") }
             },
             dismissButton = { TextButton(onClick = { picking = false }) { Text("Cancel") } }
         ) { DatePicker(state = state) }
+    }
+
+    if (addStep == 1) {
+        AlertDialog(
+            onDismissRequest = { addStep = 0 },
+            title = { Text("New holiday") },
+            text = {
+                OutlinedTextField(newName, { newName = it }, label = { Text("Name") })
+            },
+            confirmButton = {
+                TextButton(onClick = { if (newName.isNotBlank()) addStep = 2 }) { Text("Next") }
+            },
+            dismissButton = { TextButton(onClick = { addStep = 0 }) { Text("Cancel") } }
+        )
+    }
+
+    if (addStep == 2) {
+        val rs = rememberDateRangePickerState()
+        DatePickerDialog(
+            onDismissRequest = { addStep = 0 },
+            confirmButton = {
+                TextButton(onClick = {
+                    val s = rs.selectedStartDateMillis
+                    val e = rs.selectedEndDateMillis ?: s
+                    if (s != null && e != null) {
+                        vm.addHoliday(newName.trim(), toDate(s), toDate(e))
+                        newName = ""
+                        addStep = 0
+                    }
+                }) { Text("Save") }
+            },
+            dismissButton = { TextButton(onClick = { addStep = 0 }) { Text("Cancel") } }
+        ) { DateRangePicker(state = rs, modifier = Modifier.height(500.dp)) }
     }
 
     editing?.let { s ->
