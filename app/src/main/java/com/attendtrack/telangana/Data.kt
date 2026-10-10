@@ -14,12 +14,13 @@ data class Subject(
 
 @Entity(
     tableName = "records",
-    indices = [Index(value = ["subjectId", "date"], unique = true)]
+    indices = [Index(value = ["date", "period"], unique = true)]
 )
 data class AttRecord(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val subjectId: Int,
     val date: String,
+    val period: Int,
     val present: Boolean
 )
 
@@ -43,8 +44,8 @@ interface SubjectDao {
     @Query("SELECT * FROM records WHERE date = :date")
     fun forDate(date: String): Flow<List<AttRecord>>
 
-    @Query("SELECT * FROM records WHERE subjectId = :sid AND date = :date")
-    suspend fun find(sid: Int, date: String): AttRecord?
+    @Query("SELECT * FROM records WHERE date = :date AND period = :period")
+    suspend fun find(date: String, period: Int): AttRecord?
 
     @Insert
     suspend fun insertRecord(r: AttRecord)
@@ -56,7 +57,7 @@ interface SubjectDao {
     suspend fun deleteRecord(r: AttRecord)
 }
 
-@Database(entities = [Subject::class, AttRecord::class], version = 2, exportSchema = false)
+@Database(entities = [Subject::class, AttRecord::class], version = 3, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun dao(): SubjectDao
 
