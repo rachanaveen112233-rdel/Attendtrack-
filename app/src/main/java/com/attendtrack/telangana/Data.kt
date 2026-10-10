@@ -67,7 +67,8 @@ interface SubjectDao {
     @Delete
     suspend fun deleteRecord(r: AttRecord)
 
-    @Query("SELECT * FROM holidays ORDER BY startDate")
+    @Query("SELECT * FROM records ORDER BY date, period")
+    suspend fun allRecords(): List<AttRecord>
     fun holidays(): Flow<List<Holiday>>
 
     @Query("SELECT COUNT(*) FROM holidays")
