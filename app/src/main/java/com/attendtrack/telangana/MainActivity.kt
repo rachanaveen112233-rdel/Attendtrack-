@@ -28,7 +28,12 @@ class MainActivity : ComponentActivity() {
     private val vm: AttendViewModel by viewModels()
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { MaterialTheme { Dashboard(vm) } }
+                setContent {
+            MaterialTheme {
+                var showIntro by remember { mutableStateOf(true) }
+                if (showIntro) IntroScreen { showIntro = false } else Dashboard(vm)
+            }
+        }
     }
 }
 
