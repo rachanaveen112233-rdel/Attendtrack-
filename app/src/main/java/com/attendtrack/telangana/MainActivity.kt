@@ -7,6 +7,7 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -27,6 +28,8 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+val periodTimes = listOf("10-11", "11-12", "12-1", "2-3", "3-4", "4-5")
+
 fun status(a: Int, h: Int): String = when {
     h == 0 -> "No classes yet"
     Calculator.percent(a, h) >= Calculator.TARGET ->
@@ -44,6 +47,8 @@ fun Dashboard(vm: AttendViewModel) {
     var picking by remember { mutableStateOf(false) }
     val att = list.sumOf { it.attended }
     val held = list.sumOf { it.held }
+    val day = LocalDate.parse(date).dayOfWeek
+    val periods = Timetable.week[day] ?: emptyList()
 
     Scaffold(topBar = { TopAppBar(title = { Text("AttendTrack") }) }) { pad ->
         LazyColumn(
@@ -58,7 +63,7 @@ fun Dashboard(vm: AttendViewModel) {
                             "%.2f%%".format(Calculator.percent(att, held)),
                             style = MaterialTheme.typography.displaySmall
                         )
-                        Text("$att / $held classes")
+                        Text("$att / $held periods")
                         Text(status(att, held))
                     }
                 }
@@ -70,13 +75,44 @@ fun Dashboard(vm: AttendViewModel) {
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("Marking for: $date")
+                        Text("$date  ($day)")
                         Button(onClick = { picking = true }) { Text("Change date") }
                     }
                 }
             }
+            if (periods.isEmpty()) {
+                item { Text("No classes on this day") }
+            }
+            itemsIndexed(periods) { i, name ->
+                val rec = recs.firstOrNull { it.period == i + 1 }
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text(
+                            "Period ${i + 1}  (${periodTimes[i]})",
+                            style = MaterialTheme.typography.labelLarge
+                        )
+                        if (name == null) {
+                            Text("No class")
+                        } else {
+                            Text(name, style = MaterialTheme.typography.titleMedium)
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                if (rec?.present == true) {
+                                    Button(onClick = { vm.markPeriod(name, i + 1, true) }) { Text("Present") }
+                                } else {
+                                    OutlinedButton(onClick = { vm.markPeriod(name, i + 1, true) }) { Text("Present") }
+                                }
+                                if (rec?.present == false) {
+                                    Button(onClick = { vm.markPeriod(name, i + 1, false) }) { Text("Absent") }
+                                } else {
+                                    OutlinedButton(onClick = { vm.markPeriod(name, i + 1, false) }) { Text("Absent") }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            item { Text("Subjects", style = MaterialTheme.typography.titleLarge) }
             items(list, key = { it.id }) { s ->
-                val rec = recs.firstOrNull { it.subjectId == s.id }
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp)) {
                         Text(s.name, style = MaterialTheme.typography.titleMedium)
@@ -86,19 +122,7 @@ fun Dashboard(vm: AttendViewModel) {
                             )
                         )
                         Text(status(s.attended, s.held))
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            if (rec?.present == true) {
-                                Button(onClick = { vm.markOn(s, true) }) { Text("Present") }
-                            } else {
-                                OutlinedButton(onClick = { vm.markOn(s, true) }) { Text("Present") }
-                            }
-                            if (rec?.present == false) {
-                                Button(onClick = { vm.markOn(s, false) }) { Text("Absent") }
-                            } else {
-                                OutlinedButton(onClick = { vm.markOn(s, false) }) { Text("Absent") }
-                            }
-                            TextButton(onClick = { editing = s }) { Text("Edit") }
-                        }
+                        TextButton(onClick = { editing = s }) { Text("Edit") }
                     }
                 }
             }
