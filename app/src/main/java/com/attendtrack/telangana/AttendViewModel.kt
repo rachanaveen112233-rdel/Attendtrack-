@@ -105,7 +105,7 @@ class AttendViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-        suspend fun buildCsv(): String {
+    suspend fun buildCsv(): String {
         val names = subjects.value.associate { it.id to it.name }
         val sb = StringBuilder("date,day,period,subject,status\n")
         for (r in dao.allRecords()) {
@@ -115,7 +115,9 @@ class AttendViewModel(app: Application) : AndroidViewModel(app) {
         }
         return sb.toString()
     }
-            fun addHoliday(name: String, start: String, end: String) {
+
+    fun addHoliday(name: String, start: String, end: String) {
+        viewModelScope.launch {
             dao.insertHoliday(
                 Holiday(name = name, startDate = start, endDate = end, provisional = true)
             )
