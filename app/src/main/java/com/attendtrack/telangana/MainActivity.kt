@@ -2,7 +2,9 @@ package com.attendtrack.telangana
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -13,9 +15,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -51,6 +55,21 @@ fun Dashboard(vm: AttendViewModel) {
     var picking by remember { mutableStateOf(false) }
     var addStep by remember { mutableStateOf(0) }
     var newName by remember { mutableStateOf("") }
+
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val exporter = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                val csv = vm.buildCsv()
+                context.contentResolver.openOutputStream(uri)?.use {
+                    it.write(csv.toByteArray())
+                }
+            }
+        }
+    }
 
     val att = list.sumOf { it.attended }
     val held = list.sumOf { it.held }
@@ -155,13 +174,18 @@ fun Dashboard(vm: AttendViewModel) {
                 }
             }
             item {
-                Button(onClick = { addStep = 1 }) { Text("Add holiday") }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = { addStep = 1 }) { Text("Add holiday") }
+                    OutlinedButton(onClick = { exporter.launch("attendtrack.csv") }) {
+                        Text("Export CSV")
+                    }
+                }
             }
         }
     }
 
     if (picking) {
-                val state = rememberDatePickerState(
+        val state = rememberDatePickerState(
             yearRange = 2026..2027,
             initialSelectedDateMillis = LocalDate.parse(date)
                 .atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
@@ -193,7 +217,7 @@ fun Dashboard(vm: AttendViewModel) {
     }
 
     if (addStep == 2) {
-                val rs = rememberDateRangePickerState(yearRange = 2026..2027)
+        val rs = rememberDateRangePickerState(yearRange = 2026..2027)
         DatePickerDialog(
             onDismissRequest = { addStep = 0 },
             confirmButton = {
