@@ -83,8 +83,8 @@ fun Dashboard(vm: AttendViewModel) {
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("$date  ($day)")
-                        Button(onClick = { picking = true }) { Text("Change date") }
+                        Text("$date  ($day)", modifier = Modifier.weight(1f))
+                        Button(onClick = { picking = true }) { Text("Change", maxLines = 1) }
                     }
                 }
             }
