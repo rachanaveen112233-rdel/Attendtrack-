@@ -18,6 +18,6 @@ object Timetable {
         DayOfWeek.WEDNESDAY to listOf(GRAPH, GRAPH, GRAPH, MATHS, ELAB, ELAB),
         DayOfWeek.THURSDAY to listOf(null, null, ENG, CLAB, CLAB, CLAB),
         DayOfWeek.FRIDAY to listOf(CHEM, CHEM, ENG, CLAB, CLAB, CLAB),
-        DayOfWeek.SATURDAY to listOf(MATHS, MATHS, MATHS, CLAB, CLAB, CLAB)
+        DayOfWeek.SATURDAY to listOf(null, MATHS, MATHS, CLAB, CLAB, CLAB)
     )
 }
