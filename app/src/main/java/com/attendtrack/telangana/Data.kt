@@ -40,6 +40,9 @@ interface SubjectDao {
     @Query("SELECT * FROM subjects ORDER BY id")
     fun all(): Flow<List<Subject>>
 
+    @Query("SELECT * FROM subjects ORDER BY id")
+    suspend fun allSubjects(): List<Subject>
+
     @Query("SELECT COUNT(*) FROM subjects")
     suspend fun count(): Int
 
@@ -52,6 +55,9 @@ interface SubjectDao {
     @Update
     suspend fun update(s: Subject)
 
+    @Query("DELETE FROM subjects")
+    suspend fun clearSubjects()
+
     @Query("SELECT * FROM records WHERE date = :date")
     fun forDate(date: String): Flow<List<AttRecord>>
 
@@ -60,6 +66,9 @@ interface SubjectDao {
 
     @Insert
     suspend fun insertRecord(r: AttRecord)
+
+    @Insert
+    suspend fun insertRecords(list: List<AttRecord>)
 
     @Update
     suspend fun updateRecord(r: AttRecord)
@@ -70,8 +79,14 @@ interface SubjectDao {
     @Query("SELECT * FROM records ORDER BY date, period")
     suspend fun allRecords(): List<AttRecord>
 
+    @Query("DELETE FROM records")
+    suspend fun clearRecords()
+
     @Query("SELECT * FROM holidays ORDER BY startDate")
     fun holidays(): Flow<List<Holiday>>
+
+    @Query("SELECT * FROM holidays ORDER BY startDate")
+    suspend fun allHolidays(): List<Holiday>
 
     @Query("SELECT COUNT(*) FROM holidays")
     suspend fun holidayCount(): Int
@@ -84,6 +99,9 @@ interface SubjectDao {
 
     @Delete
     suspend fun deleteHoliday(h: Holiday)
+
+    @Query("DELETE FROM holidays")
+    suspend fun clearHolidays()
 }
 
 val MIGRATION_3_4 = object : Migration(3, 4) {
