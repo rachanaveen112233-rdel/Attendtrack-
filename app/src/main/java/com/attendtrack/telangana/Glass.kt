@@ -31,14 +31,14 @@ private val glassBorder = Brush.linearGradient(
 fun GlassTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = darkColorScheme(
-            primary = Color(0xFFA5D8FF),
-            onPrimary = Color(0xFF0B1B33),
+            primary = Color.White,
+            onPrimary = Color.Black,
             background = Color.Transparent,
             surface = Color.Transparent,
             onBackground = Color.White,
             onSurface = Color.White,
-            onSurfaceVariant = Color(0xFFD9DCF7),
-            surfaceContainerHigh = Color(0xFF2A2750)
+            onSurfaceVariant = Color(0xFFCCCCCC),
+            surfaceContainerHigh = Color(0xFF1E1E1E)
         )
     ) {
         Box(
@@ -46,7 +46,7 @@ fun GlassTheme(content: @Composable () -> Unit) {
                 .fillMaxSize()
                 .background(
                     Brush.linearGradient(
-                        listOf(Color(0xFF312E81), Color(0xFF6D28D9), Color(0xFF0E7490))
+                                                listOf(Color(0xFF000000), Color(0xFF2B2B2B), Color(0xFF0A0A0A))
                     )
                 )
         ) { content() }
@@ -59,7 +59,7 @@ fun Card(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> U
     Column(
         modifier
             .background(
-                Brush.linearGradient(listOf(Color(0x40FFFFFF), Color(0x14FFFFFF))),
+                                Brush.verticalGradient(listOf(Color(0x99FFFFFF), Color(0x55FFFFFF))),
                 shape
             )
             .border(1.dp, glassBorder, shape),
