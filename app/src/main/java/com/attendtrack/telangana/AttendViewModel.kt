@@ -84,23 +84,30 @@ class AttendViewModel(app: Application) : AndroidViewModel(app) {
             val old = dao.find(date, period)
             val cur = dao.getSubject(s.id)
             val p = if (present) 1 else 0
+            var undo = false
             when {
                 old == null -> {
                     dao.insertRecord(
                         AttRecord(subjectId = s.id, date = date, period = period, present = present)
                     )
                     dao.update(cur.copy(attended = cur.attended + p, held = cur.held + 1))
-                    Sounds.afterTap(getApplication<Application>(), dao, present)
                 }
                 old.present == present -> {
                     dao.deleteRecord(old)
                     dao.update(cur.copy(attended = cur.attended - p, held = cur.held - 1))
+                    undo = true
                 }
                 else -> {
                     dao.updateRecord(old.copy(present = present))
                     dao.update(cur.copy(attended = cur.attended + if (present) 1 else -1))
-                    Sounds.afterTap(getApplication<Application>(), dao, present)
                 }
+            }
+            if (!undo) {
+                val all = dao.allSubjects()
+                val a = all.sumOf { it.attended }
+                val h = all.sumOf { it.held }
+                val pct = if (h == 0) 0.0 else a * 100.0 / h
+                Sounds.play(getApplication<Application>(), present, pct)
             }
         }
     }
