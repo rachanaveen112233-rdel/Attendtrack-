@@ -90,6 +90,7 @@ class AttendViewModel(app: Application) : AndroidViewModel(app) {
                         AttRecord(subjectId = s.id, date = date, period = period, present = present)
                     )
                     dao.update(cur.copy(attended = cur.attended + p, held = cur.held + 1))
+                    Sounds.afterTap(getApplication<Application>(), dao, present)
                 }
                 old.present == present -> {
                     dao.deleteRecord(old)
@@ -98,6 +99,7 @@ class AttendViewModel(app: Application) : AndroidViewModel(app) {
                 else -> {
                     dao.updateRecord(old.copy(present = present))
                     dao.update(cur.copy(attended = cur.attended + if (present) 1 else -1))
+                    Sounds.afterTap(getApplication<Application>(), dao, present)
                 }
             }
         }
