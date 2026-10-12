@@ -4,34 +4,37 @@ import android.content.Context
 import android.media.MediaPlayer
 
 object Sounds {
-    private var flip = false
+    // File names in res/raw, without .mp3. Change them here if yours differ.
+    private const val WTF = "fahhhh_sometimes_wtf"
+    private const val VINE = "vine_boom"
+    private const val FAH = "fahhhhh"
+    private const val CHICKEN = "chicken"
+    private const val ANIME = "anime"
+    private const val YAH = "yahhhh"
 
-    private fun play(ctx: Context, name: String) {
+    private var player: MediaPlayer? = null
+
+    private fun pick(present: Boolean, pct: Double): String? =
+        if (present) {
+            if (pct >= 75) listOf(ANIME, YAH).random() else null
+        } else when {
+            pct > 75 -> FAH
+            pct > 70 -> WTF
+            pct > 65 -> VINE
+            else -> CHICKEN
+        }
+
+    fun play(ctx: Context, present: Boolean, pct: Double) {
+        val name = pick(present, pct) ?: return
         val id = ctx.resources.getIdentifier(name, "raw", ctx.packageName)
         if (id == 0) return
-        try {
-            val mp = MediaPlayer.create(ctx, id) ?: return
-            mp.setOnCompletionListener { it.release() }
+        player?.release()
+        player = MediaPlayer.create(ctx, id)?.also { mp ->
+            mp.setOnCompletionListener {
+                it.release()
+                if (player === it) player = null
+            }
             mp.start()
-        } catch (e: Exception) {
         }
-    }
-
-    suspend fun afterTap(ctx: Context, dao: SubjectDao, present: Boolean) {
-        val all = dao.allSubjects()
-        val pct = Calculator.percent(all.sumOf { it.attended }, all.sumOf { it.held })
-        val name: String? = if (present) {
-            if (pct >= 75.0) {
-                flip = !flip
-                if (flip) "anime" else "yahhhh"
-            } else null
-        } else when {
-            pct < 65.0 -> "chicken"
-            pct < 70.0 -> "vine_boom"
-            pct < 75.0 -> "fahhhhh_wtf"
-            pct < 100.0 -> "fahhhhh"
-            else -> null
-        }
-        if (name != null) play(ctx, name)
     }
 }
