@@ -29,17 +29,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
-private val subjMuted = Color(0xFFBBBBBB)
+private val subjMuted = Color(0xFFA9B0BC)
 
 @Composable
-private fun SubjBar(fraction: Float) {
+private fun SubjBar(fraction: Float, color: Color) {
     Box(Modifier.fillMaxWidth().height(10.dp)) {
-        Box(Modifier.fillMaxSize().background(Color(0x26FFFFFF), CircleShape))
+        Box(Modifier.fillMaxSize().background(Color(0xFF262C36), CircleShape))
         Box(
             Modifier
                 .fillMaxHeight()
                 .fillMaxWidth(fraction.coerceIn(0.001f, 1f))
-                .background(Color.White, CircleShape)
+                .background(color, CircleShape)
         )
         Box(Modifier.fillMaxHeight().fillMaxWidth(0.75f)) {
             Box(
@@ -54,15 +54,15 @@ private fun SubjBar(fraction: Float) {
 }
 
 @Composable
-private fun SubjChip(filled: Boolean, text: String) {
+private fun SubjChip(filled: Boolean, text: String, color: Color) {
     val shape = RoundedCornerShape(50)
     Text(
         text,
         modifier = Modifier
-            .background(if (filled) Color.White else Color.Transparent, shape)
-            .border(1.dp, Color.White, shape)
+            .background(if (filled) color else Color.Transparent, shape)
+            .border(1.dp, color, shape)
             .padding(horizontal = 12.dp, vertical = 4.dp),
-        color = if (filled) Color.Black else Color.White,
+        color = if (filled) Color.Black else color,
         fontSize = 12.sp,
         fontWeight = FontWeight.Medium,
         letterSpacing = 1.sp
@@ -74,6 +74,7 @@ private fun SubjCard(s: Subject, onEdit: () -> Unit) {
     val pct = Calculator.percent(s.attended, s.held)
     val anim by animateFloatAsState((pct / 100.0).toFloat(), tween(800), label = "bar")
     val shownPct by animateFloatAsState(pct.toFloat(), tween(800), label = "subjPct")
+    val tone = if (s.held == 0) AppAccentSoft else statusColor(pct)
     val advice = when {
         s.held == 0 -> "No classes yet"
         pct >= Calculator.TARGET -> {
@@ -111,12 +112,12 @@ private fun SubjCard(s: Subject, onEdit: () -> Unit) {
                     modifier = Modifier.padding(bottom = 6.dp)
                 )
             }
-            SubjBar(anim)
+            SubjBar(anim, tone)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 when {
-                    s.held == 0 -> SubjChip(false, "NO DATA")
-                    pct >= Calculator.TARGET -> SubjChip(true, "SAFE")
-                    else -> SubjChip(false, "LOW")
+                    s.held == 0 -> SubjChip(false, "NO DATA", subjMuted)
+                    pct >= Calculator.TARGET -> SubjChip(true, "SAFE", StatusGreen)
+                    else -> SubjChip(false, "LOW", statusColor(pct))
                 }
                 Spacer(Modifier.width(12.dp))
                 Text(advice, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
