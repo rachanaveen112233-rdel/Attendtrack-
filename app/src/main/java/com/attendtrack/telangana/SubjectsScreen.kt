@@ -73,6 +73,7 @@ private fun SubjChip(filled: Boolean, text: String) {
 private fun SubjCard(s: Subject, onEdit: () -> Unit) {
     val pct = Calculator.percent(s.attended, s.held)
     val anim by animateFloatAsState((pct / 100.0).toFloat(), tween(800), label = "bar")
+    val shownPct by animateFloatAsState(pct.toFloat(), tween(800), label = "subjPct")
     val advice = when {
         s.held == 0 -> "No classes yet"
         pct >= Calculator.TARGET -> {
@@ -98,7 +99,7 @@ private fun SubjCard(s: Subject, onEdit: () -> Unit) {
             }
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(
-                    "%.1f%%".format(pct),
+                    "%.1f%%".format(shownPct),
                     style = MaterialTheme.typography.displaySmall.copy(
                         fontSize = 40.sp, lineHeight = 44.sp, letterSpacing = (-1).sp
                     )
