@@ -3,13 +3,8 @@ package com.attendtrack.telangana
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -50,7 +45,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -73,37 +67,20 @@ private val todaySlots = listOf(
     "10:00 – 11:00", "11:00 – 12:00", "12:00 – 1:00",
     "2:00 – 3:00", "3:00 – 4:00", "4:00 – 5:00"
 )
-private val todayMuted = Color(0xFFBBBBBB)
+private val todayMuted = Color(0xFFA9B0BC)
 
 @Composable
-private fun TodayRing(fraction: Float, ringSize: Dp, label: String) {
+private fun TodayRing(fraction: Float, ringSize: Dp, label: String, color: Color) {
     val anim by animateFloatAsState(fraction.coerceIn(0f, 1f), tween(900), label = "ring")
-    val glow by rememberInfiniteTransition(label = "glow").animateFloat(
-        initialValue = 0.08f,
-        targetValue = 0.30f,
-        animationSpec = infiniteRepeatable(
-            tween(2200, easing = FastOutSlowInEasing), RepeatMode.Reverse
-        ),
-        label = "glowValue"
-    )
+    val tint by animateColorAsState(color, tween(500), label = "ringColor")
     Box(Modifier.size(ringSize), contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
             val stroke = 12.dp.toPx()
             val topLeft = Offset(stroke / 2, stroke / 2)
             val arc = Size(size.width - stroke, size.height - stroke)
-            val glowRadius = size.minDimension * 0.8f
-            drawCircle(
-                brush = Brush.radialGradient(
-                    listOf(Color.White.copy(alpha = glow), Color.Transparent),
-                    center = center,
-                    radius = glowRadius
-                ),
-                radius = glowRadius,
-                center = center
-            )
-            drawArc(Color(0x26FFFFFF), 0f, 360f, false, topLeft, arc, style = Stroke(stroke))
+            drawArc(Color(0xFF262C36), 0f, 360f, false, topLeft, arc, style = Stroke(stroke))
             drawArc(
-                Color.White, -90f, 360f * anim, false, topLeft, arc,
+                tint, -90f, 360f * anim, false, topLeft, arc,
                 style = Stroke(stroke, cap = StrokeCap.Round)
             )
         }
@@ -117,15 +94,15 @@ private fun TodayRing(fraction: Float, ringSize: Dp, label: String) {
 }
 
 @Composable
-private fun TodayChip(filled: Boolean, text: String) {
+private fun TodayChip(filled: Boolean, text: String, color: Color = Color.White) {
     val shape = RoundedCornerShape(50)
     Text(
         text,
         modifier = Modifier
-            .background(if (filled) Color.White else Color.Transparent, shape)
-            .border(1.dp, Color.White, shape)
+            .background(if (filled) color else Color.Transparent, shape)
+            .border(1.dp, color, shape)
             .padding(horizontal = 12.dp, vertical = 4.dp),
-        color = if (filled) Color.Black else Color.White,
+        color = if (filled) Color.Black else color,
         fontSize = 12.sp,
         fontWeight = FontWeight.Medium,
         letterSpacing = 1.sp
@@ -165,14 +142,13 @@ private fun TodayToggle(
         label = "togglePress"
     )
     val bg by animateColorAsState(
-        if (selected) selectedBg else Color(0x0DFFFFFF), tween(250), label = "toggleBg"
+        if (selected) selectedBg else Color.Transparent, tween(250), label = "toggleBg"
     )
     val edge by animateColorAsState(
-        if (selected) selectedBg else Color(0x66FFFFFF), tween(250), label = "toggleEdge"
+        if (selected) selectedBg else Color(0xFF3A4250), tween(250), label = "toggleEdge"
     )
-    val selectedFg = if (selectedBg == Color.White) Color.Black else Color.White
     val fg by animateColorAsState(
-        if (selected) selectedFg else Color.White, tween(250), label = "toggleFg"
+        if (selected) Color.Black else Color.White, tween(250), label = "toggleFg"
     )
     Row(
         modifier
@@ -207,12 +183,7 @@ fun TodayScreen(vm: AttendViewModel) {
     val held = list.sumOf { it.held }
     val pct = Calculator.percent(att, held)
     val shownPct by animateFloatAsState(pct.toFloat(), tween(900), label = "pct")
-    val pulse by rememberInfiniteTransition(label = "pulse").animateFloat(
-        initialValue = 0.25f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(900), RepeatMode.Reverse),
-        label = "pulseValue"
-    )
+    val ringColor = if (held == 0) AppAccentSoft else statusColor(pct)
     val hol = hols.firstOrNull { dateStr >= it.startDate && dateStr <= it.endDate }
     val periods = if (hol != null) emptyList() else (Timetable.week[date.dayOfWeek] ?: emptyList())
     val monday = date.minusDays((date.dayOfWeek.value - 1).toLong())
@@ -273,7 +244,9 @@ fun TodayScreen(vm: AttendViewModel) {
         item {
             Card(Modifier.fillMaxWidth()) {
                 Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
-                    TodayRing((pct / 100.0).toFloat(), 128.dp, "%.1f%%".format(shownPct))
+                    TodayRing(
+                        (pct / 100.0).toFloat(), 128.dp, "%.1f%%".format(shownPct), ringColor
+                    )
                     Spacer(Modifier.width(20.dp))
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
@@ -283,9 +256,9 @@ fun TodayScreen(vm: AttendViewModel) {
                         )
                         Text("$att / $held periods", style = MaterialTheme.typography.titleMedium)
                         when {
-                            held == 0 -> TodayChip(false, "NO DATA YET")
-                            pct >= Calculator.TARGET -> TodayChip(true, "ON TRACK")
-                            else -> TodayChip(false, "BELOW 75%")
+                            held == 0 -> TodayChip(false, "NO DATA YET", todayMuted)
+                            pct >= Calculator.TARGET -> TodayChip(true, "ON TRACK", StatusGreen)
+                            else -> TodayChip(false, "BELOW 75%", statusColor(pct))
                         }
                         Crossfade(targetState = advice, animationSpec = tween(350), label = "advice") {
                             Text(it, style = MaterialTheme.typography.bodyLarge)
@@ -309,13 +282,10 @@ fun TodayScreen(vm: AttendViewModel) {
                         val sel = d == date
                         val shape = RoundedCornerShape(18.dp)
                         val dayBg by animateColorAsState(
-                            if (sel) Color.White else Color(0x14FFFFFF), tween(300), label = "dayBg"
-                        )
-                        val dayFg by animateColorAsState(
-                            if (sel) Color.Black else Color.White, tween(300), label = "dayFg"
+                            if (sel) AppAccent else AppCard, tween(300), label = "dayBg"
                         )
                         val dayMuted by animateColorAsState(
-                            if (sel) Color.Black else todayMuted, tween(300), label = "dayMuted"
+                            if (sel) Color(0xFFDDE0FF) else todayMuted, tween(300), label = "dayMuted"
                         )
                         val dayScale by animateFloatAsState(
                             if (sel) 1.07f else 1f,
@@ -331,7 +301,7 @@ fun TodayScreen(vm: AttendViewModel) {
                                 }
                                 .clip(shape)
                                 .background(dayBg, shape)
-                                .border(1.dp, Color(0x33FFFFFF), shape)
+                                .border(1.dp, if (sel) AppAccent else AppBorder, shape)
                                 .clickable { go(d) }
                                 .padding(vertical = 10.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
@@ -346,14 +316,14 @@ fun TodayScreen(vm: AttendViewModel) {
                                 d.dayOfMonth.toString(),
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.Medium,
-                                color = dayFg
+                                color = Color.White
                             )
                             Spacer(Modifier.height(3.dp))
                             Box(
                                 Modifier
                                     .size(5.dp)
-                                    .graphicsLayer { alpha = if (isHoliday(d)) pulse else 0f }
-                                    .background(if (sel) Color.Black else Color.White, CircleShape)
+                                    .graphicsLayer { alpha = if (isHoliday(d)) 1f else 0f }
+                                    .background(if (sel) Color.White else StatusAmber, CircleShape)
                             )
                         }
                     }
@@ -368,7 +338,7 @@ fun TodayScreen(vm: AttendViewModel) {
             item {
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        TodayChip(false, "HOLIDAY")
+                        TodayChip(false, "HOLIDAY", AppAccentSoft)
                         Text(hol.name, style = MaterialTheme.typography.titleMedium)
                         Text(
                             "No classes. Holidays never count as absences.",
@@ -400,7 +370,7 @@ fun TodayScreen(vm: AttendViewModel) {
                         Box(
                             Modifier
                                 .size(38.dp)
-                                .border(1.dp, Color(0x66FFFFFF), CircleShape),
+                                .border(1.dp, AppBorder, CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
                             Text("${i + 1}", fontWeight = FontWeight.Medium)
@@ -420,7 +390,7 @@ fun TodayScreen(vm: AttendViewModel) {
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             TodayToggle(
                                 selected = rec?.present == true,
-                                selectedBg = Color.White,
+                                selectedBg = StatusGreen,
                                 onClick = {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     vm.markPeriod(name, i + 1, true)
@@ -433,7 +403,7 @@ fun TodayScreen(vm: AttendViewModel) {
                             }
                             TodayToggle(
                                 selected = rec?.present == false,
-                                selectedBg = Color(0xFF555555),
+                                selectedBg = StatusRed,
                                 onClick = {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     vm.markPeriod(name, i + 1, false)
