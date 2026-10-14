@@ -2,6 +2,11 @@ package com.attendtrack.telangana
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -12,8 +17,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DateRangePicker
 import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DateRangePicker
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -264,7 +269,14 @@ fun MoreScreen(vm: AttendViewModel) {
             }
         }
         if (msg.isNotEmpty()) {
-            item { MoreChip(true, msg.uppercase()) }
+            item {
+                AnimatedVisibility(
+                    visibleState = remember(msg) {
+                        MutableTransitionState(false).apply { targetState = true }
+                    },
+                    enter = fadeIn(tween(300)) + slideInVertically(tween(300)) { -it }
+                ) { MoreChip(true, msg.uppercase()) }
+            }
         }
         item {
             MoreCard(
