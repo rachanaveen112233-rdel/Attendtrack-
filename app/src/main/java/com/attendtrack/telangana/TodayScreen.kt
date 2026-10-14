@@ -1,11 +1,28 @@
 package com.attendtrack.telangana
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -33,9 +50,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
@@ -58,11 +78,29 @@ private val todayMuted = Color(0xFFBBBBBB)
 @Composable
 private fun TodayRing(fraction: Float, ringSize: Dp, label: String) {
     val anim by animateFloatAsState(fraction.coerceIn(0f, 1f), tween(900), label = "ring")
+    val glow by rememberInfiniteTransition(label = "glow").animateFloat(
+        initialValue = 0.08f,
+        targetValue = 0.30f,
+        animationSpec = infiniteRepeatable(
+            tween(2200, easing = FastOutSlowInEasing), RepeatMode.Reverse
+        ),
+        label = "glowValue"
+    )
     Box(Modifier.size(ringSize), contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
             val stroke = 12.dp.toPx()
             val topLeft = Offset(stroke / 2, stroke / 2)
             val arc = Size(size.width - stroke, size.height - stroke)
+            val glowRadius = size.minDimension * 0.8f
+            drawCircle(
+                brush = Brush.radialGradient(
+                    listOf(Color.White.copy(alpha = glow), Color.Transparent),
+                    center = center,
+                    radius = glowRadius
+                ),
+                radius = glowRadius,
+                center = center
+            )
             drawArc(Color(0x26FFFFFF), 0f, 360f, false, topLeft, arc, style = Stroke(stroke))
             drawArc(
                 Color.White, -90f, 360f * anim, false, topLeft, arc,
@@ -95,6 +133,22 @@ private fun TodayChip(filled: Boolean, text: String) {
 }
 
 @Composable
+private fun PopIcon(icon: ImageVector, selected: Boolean) {
+    val s by animateFloatAsState(
+        if (selected) 1.35f else 1f,
+        spring(dampingRatio = Spring.DampingRatioHighBouncy),
+        label = "pop"
+    )
+    Icon(
+        icon, null,
+        Modifier.size(18.dp).graphicsLayer {
+            scaleX = s
+            scaleY = s
+        }
+    )
+}
+
+@Composable
 private fun TodayToggle(
     selected: Boolean,
     selectedBg: Color,
@@ -103,20 +157,38 @@ private fun TodayToggle(
     content: @Composable RowScope.() -> Unit
 ) {
     val shape = RoundedCornerShape(50)
-    val fg = if (selectedBg == Color.White) Color.Black else Color.White
+    val src = remember { MutableInteractionSource() }
+    val pressed by src.collectIsPressedAsState()
+    val press by animateFloatAsState(
+        if (pressed) 0.95f else 1f,
+        spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        label = "togglePress"
+    )
+    val bg by animateColorAsState(
+        if (selected) selectedBg else Color(0x0DFFFFFF), tween(250), label = "toggleBg"
+    )
+    val edge by animateColorAsState(
+        if (selected) selectedBg else Color(0x66FFFFFF), tween(250), label = "toggleEdge"
+    )
+    val selectedFg = if (selectedBg == Color.White) Color.Black else Color.White
+    val fg by animateColorAsState(
+        if (selected) selectedFg else Color.White, tween(250), label = "toggleFg"
+    )
     Row(
         modifier
+            .graphicsLayer {
+                scaleX = press
+                scaleY = press
+            }
             .clip(shape)
-            .background(if (selected) selectedBg else Color(0x0DFFFFFF), shape)
-            .border(1.dp, if (selected) selectedBg else Color(0x66FFFFFF), shape)
-            .clickable(onClick = onClick)
+            .background(bg, shape)
+            .border(1.dp, edge, shape)
+            .clickable(interactionSource = src, indication = null, onClick = onClick)
             .padding(vertical = 12.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        CompositionLocalProvider(LocalContentColor provides if (selected) fg else Color.White) {
-            content()
-        }
+        CompositionLocalProvider(LocalContentColor provides fg) { content() }
     }
 }
 
@@ -134,6 +206,13 @@ fun TodayScreen(vm: AttendViewModel) {
     val att = list.sumOf { it.attended }
     val held = list.sumOf { it.held }
     val pct = Calculator.percent(att, held)
+    val shownPct by animateFloatAsState(pct.toFloat(), tween(900), label = "pct")
+    val pulse by rememberInfiniteTransition(label = "pulse").animateFloat(
+        initialValue = 0.25f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(900), RepeatMode.Reverse),
+        label = "pulseValue"
+    )
     val hol = hols.firstOrNull { dateStr >= it.startDate && dateStr <= it.endDate }
     val periods = if (hol != null) emptyList() else (Timetable.week[date.dayOfWeek] ?: emptyList())
     val monday = date.minusDays((date.dayOfWeek.value - 1).toLong())
@@ -163,16 +242,27 @@ fun TodayScreen(vm: AttendViewModel) {
     ) {
         item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        if (date == LocalDate.now()) "TODAY" else date.dayOfWeek.name,
-                        style = MaterialTheme.typography.labelLarge,
-                        color = todayMuted
-                    )
-                    Text(
-                        date.format(DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.ENGLISH)),
-                        style = MaterialTheme.typography.titleLarge
-                    )
+                AnimatedContent(
+                    targetState = dateStr,
+                    modifier = Modifier.weight(1f),
+                    transitionSpec = {
+                        (fadeIn(tween(300)) + slideInVertically(tween(300)) { it / 3 }) togetherWith
+                            (fadeOut(tween(200)) + slideOutVertically(tween(200)) { -it / 3 })
+                    },
+                    label = "dateTitle"
+                ) { ds ->
+                    val d = LocalDate.parse(ds)
+                    Column {
+                        Text(
+                            if (d == LocalDate.now()) "TODAY" else d.dayOfWeek.name,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = todayMuted
+                        )
+                        Text(
+                            d.format(DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.ENGLISH)),
+                            style = MaterialTheme.typography.titleLarge
+                        )
+                    }
                 }
                 IconButton(onClick = { picking = true }) {
                     Icon(Icons.Default.DateRange, "Pick a date", tint = Color.White)
@@ -183,7 +273,7 @@ fun TodayScreen(vm: AttendViewModel) {
         item {
             Card(Modifier.fillMaxWidth()) {
                 Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
-                    TodayRing((pct / 100.0).toFloat(), 128.dp, "%.1f%%".format(pct))
+                    TodayRing((pct / 100.0).toFloat(), 128.dp, "%.1f%%".format(shownPct))
                     Spacer(Modifier.width(20.dp))
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
@@ -197,7 +287,9 @@ fun TodayScreen(vm: AttendViewModel) {
                             pct >= Calculator.TARGET -> TodayChip(true, "ON TRACK")
                             else -> TodayChip(false, "BELOW 75%")
                         }
-                        Text(advice, style = MaterialTheme.typography.bodyLarge)
+                        Crossfade(targetState = advice, animationSpec = tween(350), label = "advice") {
+                            Text(it, style = MaterialTheme.typography.bodyLarge)
+                        }
                     }
                 }
             }
@@ -216,11 +308,29 @@ fun TodayScreen(vm: AttendViewModel) {
                         val d = monday.plusDays(i.toLong())
                         val sel = d == date
                         val shape = RoundedCornerShape(18.dp)
+                        val dayBg by animateColorAsState(
+                            if (sel) Color.White else Color(0x14FFFFFF), tween(300), label = "dayBg"
+                        )
+                        val dayFg by animateColorAsState(
+                            if (sel) Color.Black else Color.White, tween(300), label = "dayFg"
+                        )
+                        val dayMuted by animateColorAsState(
+                            if (sel) Color.Black else todayMuted, tween(300), label = "dayMuted"
+                        )
+                        val dayScale by animateFloatAsState(
+                            if (sel) 1.07f else 1f,
+                            spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+                            label = "dayScale"
+                        )
                         Column(
                             Modifier
                                 .weight(1f)
+                                .graphicsLayer {
+                                    scaleX = dayScale
+                                    scaleY = dayScale
+                                }
                                 .clip(shape)
-                                .background(if (sel) Color.White else Color(0x14FFFFFF), shape)
+                                .background(dayBg, shape)
                                 .border(1.dp, Color(0x33FFFFFF), shape)
                                 .clickable { go(d) }
                                 .padding(vertical = 10.dp),
@@ -230,23 +340,20 @@ fun TodayScreen(vm: AttendViewModel) {
                                 d.dayOfWeek.name.take(3),
                                 fontSize = 11.sp,
                                 letterSpacing = 1.sp,
-                                color = if (sel) Color.Black else todayMuted
+                                color = dayMuted
                             )
                             Text(
                                 d.dayOfMonth.toString(),
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.Medium,
-                                color = if (sel) Color.Black else Color.White
+                                color = dayFg
                             )
                             Spacer(Modifier.height(3.dp))
                             Box(
                                 Modifier
-                                    .size(4.dp)
-                                    .background(
-                                        if (isHoliday(d)) (if (sel) Color.Black else Color.White)
-                                        else Color.Transparent,
-                                        CircleShape
-                                    )
+                                    .size(5.dp)
+                                    .graphicsLayer { alpha = if (isHoliday(d)) pulse else 0f }
+                                    .background(if (sel) Color.Black else Color.White, CircleShape)
                             )
                         }
                     }
@@ -320,7 +427,7 @@ fun TodayScreen(vm: AttendViewModel) {
                                 },
                                 modifier = Modifier.weight(1f)
                             ) {
-                                Icon(Icons.Default.Check, null, Modifier.size(18.dp))
+                                PopIcon(Icons.Default.Check, rec?.present == true)
                                 Spacer(Modifier.width(6.dp))
                                 Text("Present", fontWeight = FontWeight.Medium)
                             }
@@ -333,7 +440,7 @@ fun TodayScreen(vm: AttendViewModel) {
                                 },
                                 modifier = Modifier.weight(1f)
                             ) {
-                                Icon(Icons.Default.Close, null, Modifier.size(18.dp))
+                                PopIcon(Icons.Default.Close, rec?.present == false)
                                 Spacer(Modifier.width(6.dp))
                                 Text("Absent", fontWeight = FontWeight.Medium)
                             }
@@ -348,7 +455,7 @@ fun TodayScreen(vm: AttendViewModel) {
         val state = rememberDatePickerState(
             yearRange = 2026..2027,
             initialSelectedDateMillis = date.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
-     )
+        )
         DatePickerDialog(
             onDismissRequest = { picking = false },
             confirmButton = {
