@@ -69,7 +69,35 @@ class AttendViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun holidayOn(date: String): Holiday? =
+    init {
+        viewModelScope.launch {
+            val prefs = getApplication<Application>()
+                .getSharedPreferences("attendtrack", 0)
+            if (prefs.getBoolean("holidays_v2", false)) return@launch
+            fun h(n: String, s: String, e: String = s) =
+                Holiday(name = n, startDate = s, endDate = e, provisional = true)
+            val have = dao.allHolidays().map { it.startDate }.toSet()
+            val list = listOf(
+                h("Deepavali (Diwali)", "2026-11-08"),
+                h("Guru Nanak Jayanthi / Kartika Purnima", "2026-11-24"),
+                h("Christmas", "2026-12-25"),
+                h("New Year's Day", "2027-01-01"),
+                h("Makara Sankranti / Pongal Vacation", "2027-01-13", "2027-01-17"),
+                h("Republic Day", "2027-01-26"),
+                h("Maha Shivaratri", "2027-03-06"),
+                h("Id-ul-Fitr (Ramzan), tentative", "2027-03-10"),
+                h("Holi", "2027-03-23"),
+                h("Good Friday", "2027-03-26"),
+                h("Ugadi", "2027-04-07"),
+                h("Dr. B. R. Ambedkar Jayanti", "2027-04-14"),
+                h("Sri Rama Navami", "2027-04-15"),
+                h("Id-ul-Zuha (Bakrid), tentative", "2027-05-17"),
+                h("Telangana Formation Day", "2027-06-02")
+            ).filter { it.startDate !in have }
+            dao.insertHolidays(list)
+            prefs.edit().putBoolean("holidays_v2", true).apply()
+        }
+    }    fun holidayOn(date: String): Holiday? =
         holidays.value.firstOrNull { date >= it.startDate && date <= it.endDate }
 
     fun setDate(date: String) {
