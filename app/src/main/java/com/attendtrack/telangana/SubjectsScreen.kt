@@ -86,6 +86,12 @@ private fun SubjCard(s: Subject, onEdit: () -> Unit) {
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier
+                        .size(12.dp)
+                        .background(subjectColor(s.name), CircleShape)
+                )
+                Spacer(Modifier.width(10.dp))
                 Text(
                     s.name,
                     style = MaterialTheme.typography.titleMedium,
@@ -131,16 +137,43 @@ fun SubjectsScreen(vm: AttendViewModel) {
     val list by vm.subjects.collectAsStateWithLifecycle()
     var editing by remember { mutableStateOf<Subject?>(null) }
 
+    val withData = list.filter { it.held > 0 }
+    val safe = withData.count { Calculator.percent(it.attended, it.held) >= Calculator.TARGET }
+    val low = withData.size - safe
+
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
-            Column {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("SUBJECTS", style = MaterialTheme.typography.labelLarge, color = subjMuted)
                 Text("Where you stand", style = MaterialTheme.typography.titleLarge)
-                Spacer(Modifier.height(4.dp))
+                if (withData.isEmpty()) {
+                    Text(
+                        "Mark some classes to see your status here.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = subjMuted
+                    )
+                } else {
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        Text(
+                            "$safe SAFE",
+                            color = StatusGreen,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            letterSpacing = 1.sp
+                        )
+                        Text(
+                            "$low LOW",
+                            color = if (low > 0) StatusRed else subjMuted,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            letterSpacing = 1.sp
+                        )
+                    }
+                }
                 Text(
                     "The grey line on each bar marks the 75% target.",
                     style = MaterialTheme.typography.bodyLarge,
