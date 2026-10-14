@@ -4,6 +4,17 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -25,6 +36,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 
 class MainActivity : ComponentActivity() {
@@ -35,7 +47,16 @@ class MainActivity : ComponentActivity() {
         setContent {
             GlassTheme {
                 var showIntro by rememberSaveable { mutableStateOf(true) }
-                if (showIntro) IntroScreen { showIntro = false } else AppShell(vm)
+                AnimatedContent(
+                    targetState = showIntro,
+                    transitionSpec = {
+                        (fadeIn(tween(700)) + scaleIn(tween(700), initialScale = 0.94f)) togetherWith
+                            fadeOut(tween(450))
+                    },
+                    label = "intro"
+                ) { intro ->
+                    if (intro) IntroScreen { showIntro = false } else AppShell(vm)
+                }
             }
         }
     }
@@ -56,12 +77,25 @@ fun AppShell(vm: AttendViewModel) {
     Scaffold(
         containerColor = Color.Transparent,
         bottomBar = {
-            NavigationBar(containerColor = Color(0xFF0A0A0A)) {
+            NavigationBar(containerColor = Color(0x1AFFFFFF)) {
                 tabs.forEachIndexed { i, t ->
                     NavigationBarItem(
                         selected = tab == i,
                         onClick = { tab = i },
-                        icon = { Icon(t.icon, t.label) },
+                        icon = {
+                            val pop by animateFloatAsState(
+                                if (tab == i) 1.25f else 1f,
+                                spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+                                label = "tabIcon"
+                            )
+                            Icon(
+                                t.icon, t.label,
+                                Modifier.graphicsLayer {
+                                    scaleX = pop
+                                    scaleY = pop
+                                }
+                            )
+                        },
                         label = { Text(t.label) },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = Color.Black,
@@ -76,11 +110,21 @@ fun AppShell(vm: AttendViewModel) {
         }
     ) { pad ->
         Box(Modifier.fillMaxSize().padding(pad)) {
-            when (tab) {
-                0 -> TodayScreen(vm)
-                1 -> SubjectsScreen(vm)
-                2 -> HolidaysScreen(vm)
-                else -> MoreScreen(vm)
+            AnimatedContent(
+                targetState = tab,
+                transitionSpec = {
+                    val dir = if (targetState > initialState) 1 else -1
+                    (fadeIn(tween(350)) + slideInHorizontally(tween(350)) { it / 5 * dir }) togetherWith
+                        (fadeOut(tween(250)) + slideOutHorizontally(tween(250)) { -it / 5 * dir })
+                },
+                label = "tabs"
+            ) { page ->
+                when (page) {
+                    0 -> TodayScreen(vm)
+                    1 -> SubjectsScreen(vm)
+                    2 -> HolidaysScreen(vm)
+                    else -> MoreScreen(vm)
+                }
             }
         }
     }
