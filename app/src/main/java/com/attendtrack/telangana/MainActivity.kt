@@ -100,7 +100,7 @@ fun AppShell(vm: AttendViewModel) {
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = Color.White
                             selectedTextColor = Color.White,
-                            indicatorColor = Color.White,
+                            indicatorColor = AppAccent,
                             unselectedIconColor = Color(0xFF9A9A9A),
                             unselectedTextColor = Color(0xFF9A9A9A)
                         )
