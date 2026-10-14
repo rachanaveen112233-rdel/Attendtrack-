@@ -3,6 +3,7 @@ package com.attendtrack.telangana
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -45,6 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -70,6 +72,20 @@ private val todaySlots = listOf(
 private val todayMuted = Color(0xFFA9B0BC)
 
 @Composable
+private fun Entrance(content: @Composable () -> Unit) {
+    val e = remember { Animatable(0f) }
+    LaunchedEffect(Unit) { e.animateTo(1f, tween(450)) }
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                alpha = e.value
+                translationY = (1f - e.value) * 32.dp.toPx()
+            }
+    ) { content() }
+}
+
+@Composable
 private fun TodayRing(fraction: Float, ringSize: Dp, label: String, color: Color) {
     val anim by animateFloatAsState(fraction.coerceIn(0f, 1f), tween(900), label = "ring")
     val tint by animateColorAsState(color, tween(500), label = "ringColor")
@@ -78,7 +94,7 @@ private fun TodayRing(fraction: Float, ringSize: Dp, label: String, color: Color
             val stroke = 12.dp.toPx()
             val topLeft = Offset(stroke / 2, stroke / 2)
             val arc = Size(size.width - stroke, size.height - stroke)
-            drawArc(Color(0xFF262C36), 0f, 360f, false, topLeft, arc, style = Stroke(stroke))
+            drawArc(Color(0x33FFFFFF), 0f, 360f, false, topLeft, arc, style = Stroke(stroke))
             drawArc(
                 tint, -90f, 360f * anim, false, topLeft, arc,
                 style = Stroke(stroke, cap = StrokeCap.Round)
@@ -107,6 +123,14 @@ private fun TodayChip(filled: Boolean, text: String, color: Color = Color.White)
         fontWeight = FontWeight.Medium,
         letterSpacing = 1.sp
     )
+}
+
+@Composable
+private fun HeroStat(value: String, label: String, color: Color = Color.White) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(value, fontSize = 22.sp, fontWeight = FontWeight.Medium, color = color)
+        Text(label, fontSize = 11.sp, letterSpacing = 1.sp, color = todayMuted)
+    }
 }
 
 @Composable
@@ -187,6 +211,8 @@ fun TodayScreen(vm: AttendViewModel) {
     val hol = hols.firstOrNull { dateStr >= it.startDate && dateStr <= it.endDate }
     val periods = if (hol != null) emptyList() else (Timetable.week[date.dayOfWeek] ?: emptyList())
     val monday = date.minusDays((date.dayOfWeek.value - 1).toLong())
+    val classCount = periods.count { it != null }
+    val marked = recs.count { r -> periods.getOrNull(r.period - 1) != null }
 
     val go = { d: LocalDate -> if (d.year in 2026..2027) vm.setDate(d.toString()) }
     val isHoliday = { d: LocalDate ->
@@ -206,10 +232,12 @@ fun TodayScreen(vm: AttendViewModel) {
         }
     }
 
+    val heroShape = RoundedCornerShape(28.dp)
+
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -242,27 +270,49 @@ fun TodayScreen(vm: AttendViewModel) {
         }
 
         item {
-            Card(Modifier.fillMaxWidth()) {
-                Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
-                    TodayRing(
-                        (pct / 100.0).toFloat(), 128.dp, "%.1f%%".format(shownPct), ringColor
-                    )
-                    Spacer(Modifier.width(20.dp))
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            "OVERALL",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = todayMuted
+            Entrance {
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .background(
+                            Brush.linearGradient(listOf(Color(0xFF2B3470), Color(0xFF151A2B))),
+                            heroShape
                         )
-                        Text("$att / $held periods", style = MaterialTheme.typography.titleMedium)
-                        when {
-                            held == 0 -> TodayChip(false, "NO DATA YET", todayMuted)
-                            pct >= Calculator.TARGET -> TodayChip(true, "ON TRACK", StatusGreen)
-                            else -> TodayChip(false, "BELOW 75%", statusColor(pct))
+                        .border(1.dp, Color(0xFF3A4392), heroShape)
+                        .padding(20.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        TodayRing(
+                            (pct / 100.0).toFloat(), 128.dp, "%.1f%%".format(shownPct), ringColor
+                        )
+                        Spacer(Modifier.width(20.dp))
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                "OVERALL ATTENDANCE",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = todayMuted
+                            )
+                            when {
+                                held == 0 -> TodayChip(false, "NO DATA YET", todayMuted)
+                                pct >= Calculator.TARGET -> TodayChip(true, "ON TRACK", StatusGreen)
+                                else -> TodayChip(false, "BELOW 75%", statusColor(pct))
+                            }
+                            Crossfade(targetState = advice, animationSpec = tween(350), label = "advice") {
+                                Text(it, style = MaterialTheme.typography.bodyLarge)
+                            }
                         }
-                        Crossfade(targetState = advice, animationSpec = tween(350), label = "advice") {
-                            Text(it, style = MaterialTheme.typography.bodyLarge)
-                        }
+                    }
+                    Spacer(Modifier.height(18.dp))
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .background(Color(0x33000000), RoundedCornerShape(16.dp))
+                            .padding(vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        HeroStat("$att", "ATTENDED", StatusGreen)
+                        HeroStat("${held - att}", "ABSENT", if (held - att > 0) StatusRed else Color.White)
+                        HeroStat("$held", "HELD")
                     }
                 }
             }
@@ -358,61 +408,68 @@ fun TodayScreen(vm: AttendViewModel) {
             }
         } else {
             item {
-                Text("SCHEDULE", style = MaterialTheme.typography.labelLarge, color = todayMuted)
+                Text(
+                    "SCHEDULE  ·  $marked of $classCount marked",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = todayMuted,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
             }
         }
 
         itemsIndexed(periods) { i, name ->
             val rec = recs.firstOrNull { it.period == i + 1 }
+            val tone = subjectColor(name)
             Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            Modifier
-                                .size(38.dp)
-                                .border(1.dp, AppBorder, CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text("${i + 1}", fontWeight = FontWeight.Medium)
-                        }
-                        Spacer(Modifier.width(14.dp))
-                        Column {
-                            Text(
-                                name ?: "Free period",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = if (name == null) todayMuted else Color.White
-                            )
-                            Text(todaySlots[i], fontSize = 13.sp, color = todayMuted)
-                        }
-                    }
-                    if (name != null) {
-                        Spacer(Modifier.height(14.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            TodayToggle(
-                                selected = rec?.present == true,
-                                selectedBg = StatusGreen,
-                                onClick = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    vm.markPeriod(name, i + 1, true)
-                                },
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                PopIcon(Icons.Default.Check, rec?.present == true)
-                                Spacer(Modifier.width(6.dp))
-                                Text("Present", fontWeight = FontWeight.Medium)
-                            }
-                            TodayToggle(
-                                selected = rec?.present == false,
-                                selectedBg = StatusRed,
-                                onClick = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    vm.markPeriod(name, i + 1, false)
-                                },
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                PopIcon(Icons.Default.Close, rec?.present == false)
-                                Spacer(Modifier.width(6.dp))
-                                Text("Absent", fontWeight = FontWeight.Medium)
+                Row(Modifier.padding(16.dp).height(IntrinsicSize.Min)) {
+                    Box(
+                        Modifier
+                            .width(5.dp)
+                            .fillMaxHeight()
+                            .background(tone, RoundedCornerShape(3.dp))
+                    )
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            "PERIOD ${i + 1}  ·  ${todaySlots[i]}",
+                            fontSize = 12.sp,
+                            letterSpacing = 1.sp,
+                            color = todayMuted
+                        )
+                        Text(
+                            name ?: "Free period",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = if (name == null) todayMuted else Color.White
+                        )
+                        if (name != null) {
+                            Spacer(Modifier.height(10.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                TodayToggle(
+                                    selected = rec?.present == true,
+                                    selectedBg = StatusGreen,
+                                    onClick = {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        vm.markPeriod(name, i + 1, true)
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    PopIcon(Icons.Default.Check, rec?.present == true)
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Present", fontWeight = FontWeight.Medium)
+                                }
+                                TodayToggle(
+                                    selected = rec?.present == false,
+                                    selectedBg = StatusRed,
+                                    onClick = {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        vm.markPeriod(name, i + 1, false)
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    PopIcon(Icons.Default.Close, rec?.present == false)
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Absent", fontWeight = FontWeight.Medium)
+                                }
                             }
                         }
                     }
