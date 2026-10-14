@@ -77,7 +77,7 @@ fun AppShell(vm: AttendViewModel) {
     Scaffold(
         containerColor = Color.Transparent,
         bottomBar = {
-            NavigationBar(containerColor = Color(0x1AFFFFFF)) {
+            NavigationBar(containerColor = AppCard) {
                 tabs.forEachIndexed { i, t ->
                     NavigationBarItem(
                         selected = tab == i,
