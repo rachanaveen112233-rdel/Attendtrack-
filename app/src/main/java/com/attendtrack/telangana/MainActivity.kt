@@ -75,7 +75,7 @@ private val tabs = listOf(
 fun AppShell(vm: AttendViewModel) {
     var tab by rememberSaveable { mutableStateOf(0) }
     Scaffold(
-        containerColor = Color.Transparent,
+        containerColor = AppBg,
         bottomBar = {
             NavigationBar(containerColor = AppCard) {
                 tabs.forEachIndexed { i, t ->
