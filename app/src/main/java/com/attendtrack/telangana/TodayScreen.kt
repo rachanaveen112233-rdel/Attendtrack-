@@ -43,6 +43,7 @@ import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -212,6 +213,7 @@ fun TodayScreen(vm: AttendViewModel) {
     val periods = if (hol != null) emptyList() else (Timetable.week[date.dayOfWeek] ?: emptyList())
     val monday = date.minusDays((date.dayOfWeek.value - 1).toLong())
     val classCount = periods.count { it != null }
+    val isFuture = date.isAfter(LocalDate.now())
     val marked = recs.count { r -> periods.getOrNull(r.period - 1) != null }
 
     val go = { d: LocalDate -> if (d.year in 2026..2027) vm.setDate(d.toString()) }
@@ -261,6 +263,11 @@ fun TodayScreen(vm: AttendViewModel) {
                             d.format(DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.ENGLISH)),
                             style = MaterialTheme.typography.titleLarge
                         )
+                    }
+                }
+                if (date != LocalDate.now()) {
+                    OutlinedButton(onClick = { vm.setDate(LocalDate.now().toString()) }) {
+                        Text("Today", fontSize = 13.sp)
                     }
                 }
                 IconButton(onClick = { picking = true }) {
@@ -408,12 +415,32 @@ fun TodayScreen(vm: AttendViewModel) {
             }
         } else {
             item {
-                Text(
-                    "SCHEDULE  ·  $marked of $classCount marked",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = todayMuted,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
+                Row(
+                    Modifier.fillMaxWidth().padding(top = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "SCHEDULE  ·  $marked of $classCount marked",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = todayMuted,
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (!isFuture && marked < classCount) {
+                        OutlinedButton(onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            vm.markAllPresent()
+                        }) { Text("All present", fontSize = 13.sp) }
+                    }
+                }
+            }
+            if (isFuture) {
+                item {
+                    Text(
+                        "This day hasn't happened yet, so marking is locked.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = StatusAmber
+                    )
+                }
             }
         }
 
@@ -443,7 +470,10 @@ fun TodayScreen(vm: AttendViewModel) {
                         )
                         if (name != null) {
                             Spacer(Modifier.height(10.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Row(
+                                Modifier.alpha(if (isFuture) 0.4f else 1f),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
                                 TodayToggle(
                                     selected = rec?.present == true,
                                     selectedBg = StatusGreen,
