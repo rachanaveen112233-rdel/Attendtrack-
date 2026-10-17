@@ -3,12 +3,14 @@ package com.attendtrack.telangana
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.MutableTransitionState
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -31,6 +33,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -45,7 +48,7 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.util.Locale
 
-private val moreMuted = Color(0xFFBBBBBB)
+private val moreMuted = Color(0xFFA9B0BC)
 private val fmtFull = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH)
 private val fmtShort = DateTimeFormatter.ofPattern("d MMM", Locale.ENGLISH)
 private val fmtDay = DateTimeFormatter.ofPattern("EEE, d MMM yyyy", Locale.ENGLISH)
@@ -89,8 +92,13 @@ private fun MoreChip(filled: Boolean, text: String) {
 }
 
 @Composable
-private fun HolidayCard(h: Holiday, today: LocalDate, onDelete: () -> Unit) {
-    Card(Modifier.fillMaxWidth()) {
+private fun HolidayCard(
+    h: Holiday,
+    today: LocalDate,
+    modifier: Modifier = Modifier,
+    onDelete: () -> Unit
+) {
+    Card(modifier.fillMaxWidth()) {
         Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(h.name, style = MaterialTheme.typography.titleMedium)
@@ -110,7 +118,7 @@ private fun HolidayCard(h: Holiday, today: LocalDate, onDelete: () -> Unit) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun HolidaysScreen(vm: AttendViewModel) {
     val hols by vm.holidays.collectAsStateWithLifecycle()
@@ -150,13 +158,15 @@ fun HolidaysScreen(vm: AttendViewModel) {
         if (upcoming.isNotEmpty()) {
             item { Text("UPCOMING", style = MaterialTheme.typography.labelLarge, color = moreMuted) }
             items(upcoming, key = { "u" + it.id }) { h ->
-                HolidayCard(h, today) { deleting = h }
+                HolidayCard(h, today, Modifier.animateItemPlacement()) { deleting = h }
             }
         }
         if (past.isNotEmpty()) {
             item { Text("PAST", style = MaterialTheme.typography.labelLarge, color = moreMuted) }
             items(past, key = { "p" + it.id }) { h ->
-                Box(Modifier.alpha(0.55f)) { HolidayCard(h, today) { deleting = h } }
+                Box(Modifier.animateItemPlacement().alpha(0.55f)) {
+                    HolidayCard(h, today) { deleting = h }
+                }
             }
         }
     }
@@ -217,6 +227,44 @@ private fun MoreCard(title: String, body: String, content: @Composable RowScope.
 }
 
 @Composable
+private fun MotionSwitch() {
+    val context = LocalContext.current
+    val labels = listOf("Off", "Normal", "Max")
+    val description = when (Motion.level) {
+        0 -> "Everything is instant, with no movement. Best for low battery."
+        1 -> "Smooth animations, without confetti or the shake."
+        else -> "All animations, including confetti and the shake."
+    }
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Animation level", style = MaterialTheme.typography.titleMedium)
+            Text(description, style = MaterialTheme.typography.bodyLarge, color = moreMuted)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                labels.forEachIndexed { i, label ->
+                    val sel = Motion.level == i
+                    val shape = RoundedCornerShape(50)
+                    val bg by animateColorAsState(
+                        if (sel) AppAccent else Color.Transparent, tween(250), label = "segBg"
+                    )
+                    Box(
+                        Modifier
+                            .weight(1f)
+                            .clip(shape)
+                            .background(bg, shape)
+                            .border(1.dp, if (sel) AppAccent else AppBorder, shape)
+                            .clickable { Motion.save(context, i) }
+                            .padding(vertical = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(label, fontWeight = FontWeight.Medium)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun MoreScreen(vm: AttendViewModel) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -265,7 +313,7 @@ fun MoreScreen(vm: AttendViewModel) {
         item {
             Column {
                 Text("MORE", style = MaterialTheme.typography.labelLarge, color = moreMuted)
-                Text("Your data", style = MaterialTheme.typography.titleLarge)
+                Text("Settings and data", style = MaterialTheme.typography.titleLarge)
             }
         }
         if (msg.isNotEmpty()) {
@@ -278,6 +326,7 @@ fun MoreScreen(vm: AttendViewModel) {
                 ) { MoreChip(true, msg.uppercase()) }
             }
         }
+        item { MotionSwitch() }
         item {
             MoreCard(
                 "Backup",
