@@ -42,6 +42,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Motion.load(this)
         setContent {
             GlassTheme {
                 var showIntro by rememberSaveable { mutableStateOf(true) }
