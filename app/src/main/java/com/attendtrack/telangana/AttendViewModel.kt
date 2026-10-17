@@ -141,6 +141,32 @@ class AttendViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+        fun markAllPresent() {
+        viewModelScope.launch {
+            val date = selectedDate.value
+            if (holidayOn(date) != null) return@launch
+            val day = LocalDate.parse(date)
+            if (day.isAfter(LocalDate.now())) return@launch
+            val names = Timetable.week[day.dayOfWeek] ?: return@launch
+            names.forEachIndexed { i, name ->
+                if (name != null && dao.find(date, i + 1) == null) {
+                    val s = subjects.value.firstOrNull { it.name == name }
+                    if (s != null) {
+                        val cur = dao.getSubject(s.id)
+                        dao.insertRecord(
+                            AttRecord(subjectId = s.id, date = date, period = i + 1, present = true)
+                        )
+                        dao.update(cur.copy(attended = cur.attended + 1, held = cur.held + 1))
+                    }
+                }
+            }
+            val all = dao.allSubjects()
+            val a = all.sumOf { it.attended }
+            val h = all.sumOf { it.held }
+            Sounds.play(getApplication<Application>(), true, if (h == 0) 0.0 else a * 100.0 / h)
+        }
+    }
+
     fun edit(s: Subject, name: String, attended: Int, held: Int) {
         viewModelScope.launch {
             dao.update(s.copy(name = name, attended = attended, held = held))
