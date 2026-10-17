@@ -108,6 +108,7 @@ class AttendViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val date = selectedDate.value
             if (holidayOn(date) != null) return@launch
+            if (LocalDate.parse(date).isAfter(LocalDate.now())) return@launch
             val s = subjects.value.firstOrNull { it.name == subjectName } ?: return@launch
             val old = dao.find(date, period)
             val cur = dao.getSubject(s.id)
